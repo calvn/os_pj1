@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -7,7 +8,7 @@
 using namespace std;
 
 #define NUM_PROCESSES 3 
-#define TIME_SLICE 1000
+#define TIME_SLICE 200
 #define MAX_BURST 4000
 #define MIN_BURST 500
 
@@ -136,9 +137,9 @@ Process* Process_Queue::next()
 void Process_Queue::outputStats()
 {
 	int init, turn, wait;
-	int tmin = MAX_BURST*NUM_PROCESSES, tsum = 0, tmax = 0;
-	int imin = MAX_BURST*NUM_PROCESSES, isum = 0, imax = 0;
-	int wmin = MAX_BURST*NUM_PROCESSES, wsum = 0, wmax = 0;
+	double tmin = MAX_BURST*NUM_PROCESSES, tsum = 0, tmax = 0;
+	double imin = MAX_BURST*NUM_PROCESSES, isum = 0, imax = 0;
+	double wmin = MAX_BURST*NUM_PROCESSES, wsum = 0, wmax = 0;
 	
 	for (unsigned int i = 0; i < p.size(); i++){
 		p[i]->getWaitTimes(init, turn, wait);
@@ -155,6 +156,8 @@ void Process_Queue::outputStats()
 		wsum += wait;
 	}
 	
+	cout<<setprecision(3)<<fixed;
+
 	cout<<"Turnaround time: min "<<tmin<<"ms; avg "<<tsum/p.size()<<"ms; max "<<tmax<<"ms"<<endl;
 	cout<<"Initial wait time: min "<<imin<<"ms; avg "<<isum/p.size()<<"ms; max "<<imax<<"ms"<<endl;
 	cout<<"Total wait time: min "<<wmin<<"ms; avg "<<wsum/p.size()<<"ms; max "<<wmax<<"ms"<<endl;
@@ -217,6 +220,8 @@ int RR(Process** p){
 	pq.reset();
 	return 0;
 }
+
+
 
 //----------------------------Main Function----------------------------------
 int main()
