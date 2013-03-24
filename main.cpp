@@ -6,7 +6,7 @@
 #include <time.h>
 #include <vector>
 #include <algorithm>
-//Test
+
 using namespace std;
 
 #define NUM_PROCESSES 10 
