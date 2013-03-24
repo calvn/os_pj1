@@ -1,13 +1,15 @@
 #include <iostream>
 #include <iomanip>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <vector>
+#include <algorithm>
 
 using namespace std;
 
-#define NUM_PROCESSES 3 
+#define NUM_PROCESSES 10 
 #define TIME_SLICE 2000
 #define MAX_BURST 4000
 #define MIN_BURST 500
@@ -109,7 +111,7 @@ class Process_Queue{
 
 Process* Process_Queue::pushProcess(Process* np)
 {
-	cout<<np->getPriority();
+	//cout<<np->getPriority();
 	cout<<"[time "<<current_time<<"ms] Process "<<np->getPid();
 	cout<<" created (requires "<<np->processTime() <<"ms CPU time)"<< endl;
 
@@ -119,7 +121,7 @@ Process* Process_Queue::pushProcess(Process* np)
 
 Process* Process_Queue::pushRRProcess(Process* np)
 {
-	cout<<np->getPriority();
+	//cout<<np->getPriority();
 	cout<<"[time "<<current_time<<"ms] Process "<<np->getPid();
         cout<<" created (requires "<<np->processTime() <<"ms CPU time)"<< endl;
 	if (p.size() < 1)
@@ -257,7 +259,7 @@ int FCFS(Process** p){
 	{
 		if (p[p_index]->getArrival() == 0)
 		{	
-			cout<<p[p_index]->getPid();
+			//cout<<p[p_index]->getPid();
 			pq.pushProcess(p[p_index]);
 		}
 		else 
@@ -371,6 +373,71 @@ void PreemptivePriority(Process** p)
 	pq.outputStats();
 	pq.reset();
 }
+
+//----------------------------Random arrival---------------------------------
+/*
+void randomArrival(){
+	double min = 0;
+	double max = 0;
+	double sum = 0;
+
+	int n = 20;
+	for (int i = 0; i < n; i++){
+		double lambda = 0.001;
+		//srand(time(NULL));
+		double r = ((double)rand() / (RAND_MAX + 1LL));
+		cout << "r is " << r << endl;
+		double x = -log(r) / lambda;
+		if (x > 8000){
+			i--;
+			continue;
+		}
+		cout << "x is " << x << endl;
+		sum+= x;
+		if (i == 0 || x < min){
+			min = x;
+		}
+		if (i == 0 || x > max){
+			max = x;
+		}
+	}
+	double avg = sum / n;
+	cout << "MIN:" << min << endl;
+	cout << "AVG:" << avg << endl;
+	cout << "MAX:" << max << endl;
+}
+*/
+int randomArrival(int processCount){
+
+	int val = 0;
+	/*
+	int percent = rand() % 100 + 1; //Random number between 1-100
+	if (percent <= 20)
+	{
+		return val;
+	}
+	*/
+
+	if (processCount < NUM_PROCESSES * 0.2)
+		return val;
+
+	while(1)
+	{
+		double lambda = 0.001;
+		//srand(time(NULL));
+		double r = ((double)rand() / (RAND_MAX + 1LL));
+		val = -log(r) / lambda;
+		if (val <= 8000){
+			break;
+		}
+	}
+	return val;
+}
+
+bool sortbyArrival(Process* i, Process* j){
+	return i->getArrival() < j->getArrival();
+}
+
 //----------------------------Main Function----------------------------------
 int main()
 {
@@ -381,15 +448,24 @@ int main()
 	for (int i = 0; i < NUM_PROCESSES; i++){
 		int p_time = rand() % (MAX_BURST - MIN_BURST) + MIN_BURST;
 		int priority = rand() % (MAX_PRIORITY+1);
-		p[i] = new Process((i+1), p_time, i*2000, priority);
+		int arrival = randomArrival(i);
+		p[i] = new Process((i+1), p_time, arrival, priority);
+		cout << "p[" << i << "] arrival: "<< p[i]->getArrival() << " priority "<< p[i]->getPriority() << endl;
 	}
-	
 
-	FCFS(p);
+	sort(p, p+NUM_PROCESSES, sortbyArrival);
 
-	RR(p);
+	for (int i = 0; i < NUM_PROCESSES; i++){
+		cout << "p[" << i << "] arrival: "<< p[i]->getArrival() << " priority "<< p[i]->getPriority() << endl;		
+	}
+
+	//cout << randomArrival() << endl;
+
+	//FCFS(p);
+
+	//RR(p);
 	
-	PreemptivePriority(p);
+	//PreemptivePriority(p);
 
 	for (int i = 0; i < NUM_PROCESSES; i++){
 		free(p[i]);
