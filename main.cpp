@@ -91,14 +91,15 @@ void Process::resetWait(){
 class Process_Queue{
 	public:
 	Process_Queue(){current_index = 0;};
-	Process* pushProcess(Process* np);
+	int pushProcess(Process* np);
+	int pushProcessPri(Process* np);
 	Process* pushRRProcess(Process* np);
 	void reset();
 	void outputStats();
 
 	Process* nextShortest();
 	Process* nextHighPriority();	
-	int numPriority(int num);
+//	int numPriority(int num);
 	Process* next();
 
 	bool isEmpty() {return (p.size() > 0); }
@@ -109,14 +110,27 @@ class Process_Queue{
 		unsigned int current_index;
 };	
 
-Process* Process_Queue::pushProcess(Process* np)
+int Process_Queue::pushProcess(Process* np)
 {
-	//cout<<np->getPriority();
 	cout<<"[time "<<current_time<<"ms] Process "<<np->getPid();
 	cout<<" created (requires "<<np->processTime() <<"ms CPU time)"<< endl;
-
 	p.push_back(np);
-	return np;  //Could expand for preemptive
+	return 1;  
+}
+
+int Process_Queue::pushProcessPri(Process* np)
+{
+	cout<<"[time "<<current_time<<"ms] Process "<<np->getPid();
+	cout<<" created (requires "<<np->processTime() <<"ms CPU time, Priority "<<np->getPriority()<<")"<< endl;
+	p.push_back(np);
+	if (current_index == 0)
+	{
+		return (p[p.size()-1]->getPriority() <= np->getPriority());	
+	}
+	else 
+	{
+		return (p[current_index -1]->getPriority() <= np->getPriority());	
+	}
 }
 
 Process* Process_Queue::pushRRProcess(Process* np)
@@ -138,7 +152,7 @@ Process* Process_Queue::pushRRProcess(Process* np)
 		current_index++;
 	}
 	cout<<"Queue is ";
-	for (int i = 0; i < p.size(); i++)
+	for (unsigned int i = 0; i < p.size(); i++)
 		cout<<p[i]->getPid()<< " ";
 	cout<<": "<<current_index<<endl;
 	return np;
@@ -201,7 +215,7 @@ Process* Process_Queue::nextHighPriority()
 	return NULL;	
 	
 }
-
+/*
 int Process_Queue::numPriority(int num)
 {
 	int r = 0;
@@ -212,7 +226,7 @@ int Process_Queue::numPriority(int num)
 	}
 	return r;
 }
-
+*/
 
 void Process_Queue::outputStats()
 {
@@ -263,7 +277,6 @@ int FCFS(Process** p){
 	{
 		if (p[p_index]->getArrival() == 0)
 		{	
-			//cout<<p[p_index]->getPid();
 			pq.pushProcess(p[p_index]);
 		}
 		else 
@@ -281,7 +294,7 @@ int FCFS(Process** p){
 			}
 			prev_process = next_p->getPid();
 			next_p = pq.next();
-			if (next_p != NULL){
+			if (next_p != NULL && next_p->getPid() != prev_process){
 				int changed = 0;
 				while (p_index < NUM_PROCESSES && p[p_index]->getArrival() < current_time+ tcs)
 				{
@@ -313,6 +326,7 @@ int RR(Process** p){
 	cout<<"ROUND ROBIN"<<endl;	
 	 Process_Queue pq;
 	int p_index;
+	int next_arrival = 0;
 	for (p_index = 0; p_index < NUM_PROCESSES; p_index++)
 	{
 		if (p[p_index]->getArrival() == 0)
@@ -320,9 +334,11 @@ int RR(Process** p){
 			pq.pushRRProcess(p[p_index]);
 		}
 		else 
-			break;	
+		{
+			next_arrival = p[p_index]->getArrival();
+			break;
+		}	
 	}
-	int next_arrival = p[p_index]->getArrival();
 	int prev_process = 0;
 	Process* next_p = pq.next();
 	while(next_p != NULL)
@@ -340,16 +356,22 @@ int RR(Process** p){
 		}
 		prev_process = next_p->getPid();
 		next_p = pq.next();
-		if (next_p != NULL){
+		if (next_p != NULL && next_p->getPid() != prev_process){
 			cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<<prev_process<<" for process "<<next_p->getPid()<<")"<<endl;
 			current_time += tcs;
 			//CHECK IF PROCESS LOADED
+			if (current_time == next_arrival)
+			{
+				 pq.pushRRProcess(p[p_index++]);
+				if (p_index != NUM_PROCESSES)
+					next_arrival = p[p_index]->getArrival();
+			}
 		}
-		else if (p_index < NUM_PROCESSES){
-			int next_arrival = p[p_index]->getArrival();
+		if (next_p == NULL && p_index < NUM_PROCESSES){
 			current_time = next_arrival;
 			pq.pushRRProcess(p[p_index++]);
 			next_p = pq.next();
+			next_arrival = p[p_index]->getArrival();
 		}
 	}
 	pq.outputStats();
@@ -362,37 +384,58 @@ void PreemptivePriority(Process** p)
 	current_time = 0;
 	cout<<"Preemptive Priority"<<endl;
 	Process_Queue pq;
-	for (int i = 0; i < NUM_PROCESSES; i++)
-		pq.pushProcess(p[i]);	
-	int prev_process = 0;
-	int numHighest = 0;
-	Process* next_p = pq.nextHighPriority();
-	while(next_p != NULL)
-        {
-		numHighest = pq.numPriority(next_p->getPriority());
-		//If multiple have same priority
-		if (numHighest > 1)
+	int p_index;
+	int next_arrival;
+	for (p_index = 0; p_index < NUM_PROCESSES; p_index++)
+	{
+		if (p[p_index]->getArrival() == 0)
 		{	
-			int ran = 1;
-			for (int i = 0 ; i < TIME_SLICE && ran == 1; i++)
-			{
-				ran = next_p->runProcess();
-			}
+			pq.pushProcessPri(p[p_index]);
 		}
-		//If it is the only with that priority
 		else 
 		{
-			int ran = 1;
-			while(ran == 1)
+			next_arrival = p[p_index]->getArrival();
+			break;	
+		}
+	}
+	int prev_process = 0;
+	//int numHighest = 0;
+	Process* next_p = pq.nextHighPriority();
+	int rv = 1 ;
+	while(next_p != NULL)
+        {
+		int ran = 1;
+		for (int i = 0 ; i < TIME_SLICE && ran == 1; i++)
+		{
+			if (rv == 0) break;
+			ran = next_p->runProcess();
+			if (current_time == next_arrival)
 			{
-				ran = next_p->runProcess();
+				rv = pq.pushProcessPri(p[p_index++]);
+				if (p_index != NUM_PROCESSES)
+					next_arrival = p[p_index]->getArrival();
 			}
 		}
+		rv = 1;
 		prev_process = next_p->getPid();
 		next_p = pq.nextHighPriority();
-		if (next_p != NULL){
+		if (next_p != NULL && next_p->getPid() != prev_process){
 			cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<<prev_process<<" for process "<<next_p->getPid()<<")"<<endl;
 			current_time += tcs;
+			//ADD CONTEXT SWITCH CODE
+			if (current_time == next_arrival)
+			{
+				rv = pq.pushProcessPri(p[p_index++]);
+				if (p_index != NUM_PROCESSES)
+					next_arrival = p[p_index]->getArrival();
+			}
+		}
+		//Queue is empty but processes still remain, jump to next time
+		if (next_p == NULL && p_index < NUM_PROCESSES){
+			current_time = next_arrival;
+			pq.pushProcessPri(p[p_index++]);
+			next_p = pq.nextHighPriority();
+			next_arrival = p[p_index]->getArrival();
 		}
 	}
 
@@ -487,11 +530,11 @@ int main()
 
 	//cout << randomArrival() << endl;
 
-	//FCFS(p);
+	FCFS(p);
 
 	RR(p);
 	
-	//PreemptivePriority(p);
+	PreemptivePriority(p);
 
 	for (int i = 0; i < NUM_PROCESSES; i++){
 		free(p[i]);
