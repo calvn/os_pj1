@@ -125,11 +125,11 @@ int Process_Queue::pushProcessPri(Process* np)
 	p.push_back(np);
 	if (current_index == 0)
 	{
-		return (p[p.size()-1]->getPriority() <= np->getPriority());	
+		return (p[p.size()-1]->getPriority() > np->getPriority());	
 	}
 	else 
 	{
-		return (p[current_index -1]->getPriority() <= np->getPriority());	
+		return (p[current_index -1]->getPriority() > np->getPriority());	
 	}
 }
 
@@ -283,35 +283,38 @@ int FCFS(Process** p){
 			break;	
 	}
 	int prev_process = 0;
-	Process* next_p = pq.next();
-	while(next_p != NULL){
-		for (int i = 0; i < NUM_PROCESSES && next_p != NULL; i++){
+	Process* current_p = pq.next();
+	while(current_p != NULL)
+	{
+		for (int i = 0; i < NUM_PROCESSES && current_p != NULL; i++)
+		{
 			int ran = 1;
-			for (int j = 0; j < 4000 && ran==1; j++){
-				ran = next_p->runProcess();
+			for (int j = 0; j < 4000 && ran==1; j++)
+			{
+				ran = current_p->runProcess();
 				if (p_index < NUM_PROCESSES && current_time == p[p_index]->getArrival())
 					pq.pushProcess(p[p_index++]);
 			}
-			prev_process = next_p->getPid();
-			next_p = pq.next();
-			if (next_p != NULL && next_p->getPid() != prev_process){
-				int changed = 0;
-				while (p_index < NUM_PROCESSES && p[p_index]->getArrival() < current_time+ tcs)
+			prev_process = current_p->getPid();
+			current_p = pq.next();
+			if (current_p != NULL && current_p->getPid() != prev_process)
+			{
+				cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<<prev_process<<" for process "<<current_p->getPid()<<")"<<endl;
+				int temp = current_time + tcs;
+				for (; p_index < NUM_PROCESSES && current_time < temp; current_time++)
 				{
-					int diff = p[p_index]->getArrival() - current_time;
-					current_time += diff;
-					pq.pushProcess(p[p_index++]);
-					changed = 1;
+					if (p[p_index]->getArrival()== current_time)
+						pq.pushProcess(p[p_index++]);
 				}
-				cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<<prev_process<<" for process "<<next_p->getPid()<<")"<<endl;
-				if (!changed) current_time += tcs;
+				current_time = temp;
 			}
 		}
-		if (p_index < NUM_PROCESSES){
+		if (p_index < NUM_PROCESSES)
+		{
 			int next_arrival = p[p_index]->getArrival();
 			current_time = next_arrival;
 			pq.pushProcess(p[p_index++]);
-			next_p = pq.next();
+			current_p = pq.next();
 		}
 	}
 	pq.outputStats();
@@ -340,13 +343,13 @@ int RR(Process** p){
 		}	
 	}
 	int prev_process = 0;
-	Process* next_p = pq.next();
-	while(next_p != NULL)
+	Process* current_p = pq.next();
+	while(current_p != NULL)
 	{
 		int ran = 1;
 		for (int i = 0 ; i < TIME_SLICE && ran == 1; i++)
 		{
-			ran = next_p->runProcess();
+			ran = current_p->runProcess();
 			if (current_time == next_arrival)
 			{
 				pq.pushRRProcess(p[p_index++]);
@@ -354,23 +357,26 @@ int RR(Process** p){
 					next_arrival = p[p_index]->getArrival();
 			}
 		}
-		prev_process = next_p->getPid();
-		next_p = pq.next();
-		if (next_p != NULL && next_p->getPid() != prev_process){
-			cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<<prev_process<<" for process "<<next_p->getPid()<<")"<<endl;
-			current_time += tcs;
-			//CHECK IF PROCESS LOADED
-			if (current_time == next_arrival)
+		prev_process = current_p->getPid();
+		current_p = pq.next();
+		if (current_p != NULL && current_p->getPid() != prev_process){
+			cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<<prev_process<<" for process "<<current_p->getPid()<<")"<<endl;
+			int temp = current_time + tcs;
+			for(;p_index < NUM_PROCESSES && current_time < temp; current_time++)
 			{
-				 pq.pushRRProcess(p[p_index++]);
-				if (p_index != NUM_PROCESSES)
-					next_arrival = p[p_index]->getArrival();
-			}
+				if (current_time == next_arrival)
+				{
+					pq.pushRRProcess(p[p_index++]);
+					if (p_index < NUM_PROCESSES)
+						next_arrival = p[p_index]->getArrival();
+				}
+			}	
+			current_time = temp;
 		}
-		if (next_p == NULL && p_index < NUM_PROCESSES){
+		if (current_p == NULL && p_index < NUM_PROCESSES){
 			current_time = next_arrival;
 			pq.pushRRProcess(p[p_index++]);
-			next_p = pq.next();
+			current_p = pq.next();
 			next_arrival = p[p_index]->getArrival();
 		}
 	}
@@ -399,42 +405,43 @@ void PreemptivePriority(Process** p)
 		}
 	}
 	int prev_process = 0;
-	//int numHighest = 0;
-	Process* next_p = pq.nextHighPriority();
-	int rv = 1 ;
-	while(next_p != NULL)
+	Process* current_p = pq.nextHighPriority();
+	int preempt = 0;
+	while(current_p != NULL)
         {
 		int ran = 1;
-		for (int i = 0 ; i < TIME_SLICE && ran == 1; i++)
+		for (int i = 0 ; i < TIME_SLICE && ran == 1 && !preempt; i++)
 		{
-			if (rv == 0) break;
-			ran = next_p->runProcess();
+			ran = current_p->runProcess();
 			if (current_time == next_arrival)
 			{
-				rv = pq.pushProcessPri(p[p_index++]);
+				preempt = pq.pushProcessPri(p[p_index++]);
 				if (p_index != NUM_PROCESSES)
 					next_arrival = p[p_index]->getArrival();
 			}
 		}
-		rv = 1;
-		prev_process = next_p->getPid();
-		next_p = pq.nextHighPriority();
-		if (next_p != NULL && next_p->getPid() != prev_process){
-			cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<<prev_process<<" for process "<<next_p->getPid()<<")"<<endl;
-			current_time += tcs;
-			//ADD CONTEXT SWITCH CODE
-			if (current_time == next_arrival)
+		prev_process = current_p->getPid();
+		current_p = pq.nextHighPriority();
+		preempt = 0;
+		if (current_p != NULL && current_p->getPid() != prev_process){
+			cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<<prev_process<<" for process "<<current_p->getPid()<<")"<<endl;
+			int temp = current_time + tcs;
+			for(;p_index < NUM_PROCESSES && current_time < temp; current_time++)
 			{
-				rv = pq.pushProcessPri(p[p_index++]);
-				if (p_index != NUM_PROCESSES)
-					next_arrival = p[p_index]->getArrival();
-			}
+				if (current_time == next_arrival)
+				{
+					preempt = pq.pushProcessPri(p[p_index++]);
+					if (p_index < NUM_PROCESSES)
+						next_arrival = p[p_index]->getArrival();
+				}
+			}	
+			current_time = temp;
 		}
 		//Queue is empty but processes still remain, jump to next time
-		if (next_p == NULL && p_index < NUM_PROCESSES){
+		if (current_p == NULL && p_index < NUM_PROCESSES){
 			current_time = next_arrival;
 			pq.pushProcessPri(p[p_index++]);
-			next_p = pq.nextHighPriority();
+			current_p = pq.nextHighPriority();
 			next_arrival = p[p_index]->getArrival();
 		}
 	}
