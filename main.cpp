@@ -9,8 +9,8 @@
 
 using namespace std;
 
-#define NUM_PROCESSES 10 
-#define TIME_SLICE 2000
+#define NUM_PROCESSES 3 
+#define TIME_SLICE 1000
 #define MAX_BURST 4000
 #define MIN_BURST 500
 #define MAX_PRIORITY 2
@@ -121,22 +121,26 @@ Process* Process_Queue::pushProcess(Process* np)
 
 Process* Process_Queue::pushRRProcess(Process* np)
 {
-	//cout<<np->getPriority();
 	cout<<"[time "<<current_time<<"ms] Process "<<np->getPid();
         cout<<" created (requires "<<np->processTime() <<"ms CPU time)"<< endl;
+	
 	if (p.size() < 1)
 	{
 		p.push_back(np);
+		current_index = 1;
 	}
 	else
 	{
 		int queue_end = current_index;
-		if (queue_end < 0 )
-			queue_end = p.size() - 1;
-		cout<<p.size()<< " "<<queue_end<<endl;
-		p.insert(p.begin() + queue_end, np);
+		if (queue_end < 1 )
+			queue_end = p.size();
+		p.insert(p.begin() +  queue_end - 1, np);
 		current_index++;
 	}
+	cout<<"Queue is ";
+	for (int i = 0; i < p.size(); i++)
+		cout<<p[i]->getPid()<< " ";
+	cout<<": "<<current_index<<endl;
 	return np;
 }
 
@@ -308,8 +312,17 @@ int RR(Process** p){
 	current_time = 0;
 	cout<<"ROUND ROBIN"<<endl;	
 	 Process_Queue pq;
-	for (int i = 0; i < NUM_PROCESSES; i++)
-		pq.pushRRProcess(p[i]);	
+	int p_index;
+	for (p_index = 0; p_index < NUM_PROCESSES; p_index++)
+	{
+		if (p[p_index]->getArrival() == 0)
+		{	
+			pq.pushRRProcess(p[p_index]);
+		}
+		else 
+			break;	
+	}
+	int next_arrival = p[p_index]->getArrival();
 	int prev_process = 0;
 	Process* next_p = pq.next();
 	while(next_p != NULL)
@@ -318,12 +331,25 @@ int RR(Process** p){
 		for (int i = 0 ; i < TIME_SLICE && ran == 1; i++)
 		{
 			ran = next_p->runProcess();
+			if (current_time == next_arrival)
+			{
+				pq.pushRRProcess(p[p_index++]);
+				if (p_index != NUM_PROCESSES)
+					next_arrival = p[p_index]->getArrival();
+			}
 		}
 		prev_process = next_p->getPid();
 		next_p = pq.next();
 		if (next_p != NULL){
 			cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<<prev_process<<" for process "<<next_p->getPid()<<")"<<endl;
 			current_time += tcs;
+			//CHECK IF PROCESS LOADED
+		}
+		else if (p_index < NUM_PROCESSES){
+			int next_arrival = p[p_index]->getArrival();
+			current_time = next_arrival;
+			pq.pushRRProcess(p[p_index++]);
+			next_p = pq.next();
 		}
 	}
 	pq.outputStats();
@@ -450,20 +476,20 @@ int main()
 		int priority = rand() % (MAX_PRIORITY+1);
 		int arrival = randomArrival(i);
 		p[i] = new Process((i+1), p_time, arrival, priority);
-		cout << "p[" << i << "] arrival: "<< p[i]->getArrival() << " priority "<< p[i]->getPriority() << endl;
+	//	cout << "p[" << i << "] arrival: "<< p[i]->getArrival() << " priority "<< p[i]->getPriority() << endl;
 	}
 
 	sort(p, p+NUM_PROCESSES, sortbyArrival);
 
 	for (int i = 0; i < NUM_PROCESSES; i++){
-		cout << "p[" << i << "] arrival: "<< p[i]->getArrival() << " priority "<< p[i]->getPriority() << endl;		
+		cout << "p[" << p[i]->getPid() << "] arrival: "<< p[i]->getArrival() << " priority "<< p[i]->getPriority() << endl;		
 	}
 
 	//cout << randomArrival() << endl;
 
 	//FCFS(p);
 
-	//RR(p);
+	RR(p);
 	
 	//PreemptivePriority(p);
 
