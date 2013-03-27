@@ -1,3 +1,8 @@
+/* Group Project 1
+ * Members: Sarah Williams, Calvin Leung Huang
+ * Date: 03-27-13 
+ */
+
 #include <iostream>
 #include <iomanip>
 #include <math.h>
@@ -9,8 +14,8 @@
 
 using namespace std;
 
-#define NUM_PROCESSES 3 
-#define TIME_SLICE 1000
+#define NUM_PROCESSES 20 
+#define TIME_SLICE 200
 #define MAX_BURST 4000
 #define MIN_BURST 500
 #define MAX_PRIORITY 4
