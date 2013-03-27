@@ -184,11 +184,13 @@ Process* Process_Queue::pushRRProcess(Process* np)
 	return np;
 }
 
-
+//Pushes process for the SJF queue
+//The head of the queue is the current index
 Process* Process_Queue::pushSJFProcess(Process* np)
 {
 	cout<<"[time "<<current_time<<"ms] Process "<<np->getPid();
 	cout<<" created (requires "<<np->processTime() <<"ms CPU time)"<< endl;
+	//If the queue is empty push to the end
 	if(p.size() < 1)
 	{
 		p.push_back(np);
@@ -197,12 +199,15 @@ Process* Process_Queue::pushSJFProcess(Process* np)
 	{
 		for(unsigned int i = current_index; i < p.size(); i++)
 		{
+			//Insert the process before a process if the arrival time is greater or equal it
+			//and remaining time is less than the process in the queue
 			if (p[i]->getArrival() <= np->getArrival() && p[i]->timeRemaining() > np->timeRemaining())
 			{
 				p.insert(p.begin() + i, np);
 				return np;
 			}
 		}
+		//Else push it to the back of the queue
 		p.push_back(np);
 
 	}
@@ -280,6 +285,7 @@ Process* Process_Queue::nextHighPriority()
 	
 }
 
+//Returns the next process with the shortest non-zero remaining time
 Process* Process_Queue::nextSJF()
 {
     current_index = 0;
@@ -493,11 +499,13 @@ int SJF(Process** p){
 	cout<<"SJF Non Preemptive"<<endl;
 	Process_Queue pq;
 
+	//Return 0 if no processes exists
 	if (NUM_PROCESSES == 0)
 	{
 		return 0;
 	}
 
+	//Push all processes that start at time 0
     for (p_index = 0; p_index < NUM_PROCESSES; p_index++)
 	{
 		if (p[p_index]->getArrival() == 0)
@@ -509,13 +517,17 @@ int SJF(Process** p){
 	}
 
     int prev_p_id = 0;
+    //Get the first process in the queue
 	Process* current_p = pq.nextSJF();
+	//While there is a process in the ready queue
 	while( current_p != NULL )
 	{
 	    int ran = 1;
-	    for( int i = 0; i < 4000 && ran == 1; i++ )
+	    //Run process until complemetion
+	    for( int i = 0; i < MAX_BURST && ran == 1; i++ )
 	    {
 	        ran = current_p->runProcess();
+	        //If a process arrives, push it to the queue
             if (p_index < NUM_PROCESSES && p[p_index]->getArrival() <= current_time)
             {
                 pq.pushSJFProcess(p[p_index]);
@@ -523,14 +535,17 @@ int SJF(Process** p){
             }
 	    }
 
+	    //Get the next process
 	    prev_p_id = current_p->getPid();
 	    current_p = pq.nextSJF();
+	    //If it is different and not null, perform a context switch
 	    if (current_p != NULL && current_p->getPid() != prev_p_id)
 	    {
 	        cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<< prev_p_id <<" for process "<<current_p->getPid()<<")"<<endl;
 			int temp = current_time + tcs;
 			for(; p_index < NUM_PROCESSES && current_time < temp; current_time++)
 			{
+				//If a process arrives during context switch, push it to the queue
 			    if(p[p_index]->getArrival() == current_time)
 			    {
 			        pq.pushSJFProcess(p[p_index]);
@@ -538,6 +553,8 @@ int SJF(Process** p){
 			}
 			current_time = temp;
 	    }
+	    //If the CPU is idle (no current process) and there are still processes to run
+		//	jump to next arrival time
 	    if (p_index < NUM_PROCESSES && current_p == NULL){
 		current_time = p[p_index]->getArrival();
 		pq.pushSJFProcess(p[p_index++]);
@@ -545,12 +562,16 @@ int SJF(Process** p){
 		}
 	}
 
+	//Output the statistics and reset the variables of each process
     pq.outputStats();
 	pq.reset();
 
 	return 0;
 }
 
+/*
+* Function that performs non-preemptive shortest job first algorithm
+*/
 int PreemptiveSJF(Process** p){
 	current_time = 0;
 	int p_index;
@@ -558,17 +579,20 @@ int PreemptiveSJF(Process** p){
 	cout<<"SJF Preemptive"<<endl;
 	Process_Queue pq;
 
+	//Return 0 if no processes exists
 	if (NUM_PROCESSES == 0)
 	{
 		return 0;
 	}
 
+	//Push all processes that start at time 0
     for (p_index = 0; p_index < NUM_PROCESSES; p_index++)
 	{
 		if (p[p_index]->getArrival() == 0)
 		{
 			pq.pushSJFProcess(p[p_index]);
 		}
+		//If it does not start at time 0, save the arrival time for reference and continue
 		else
 		{
             next_arrival = p[p_index]->getArrival();
@@ -577,22 +601,29 @@ int PreemptiveSJF(Process** p){
 	}
 
     int prev_p_id = 0;
+    //Get the first process in the queue
 	Process* current_p = pq.nextSJF();
 	int preempt = 0;
+	//While there is a process in the ready queue
 	while( current_p != NULL )
 	{
 	    int ran = 1;
-	    for( int i = 0; i < 4000 && ran == 1 && !preempt; i++ )
+	    //Run the process until it completion or preemption
+	    for( int i = 0; i < MAX_BURST && ran == 1 && !preempt; i++ )
 	    {
 	        ran = current_p->runProcess();
+	        //If a process arrives, push it to the queue
             if (p_index < NUM_PROCESSES && p[p_index]->getArrival() <= current_time)
             {
                 pq.pushSJFProcess(p[p_index]);
+                //If current the time remaining for the arriving process is less that current process
+                //Perform a context switch and raise preemption flag
                 if( current_p->timeRemaining() > p[p_index]->timeRemaining())
                 {
                     preempt = 1;
                 }
                 p_index++;
+                //Get next arrival time
                 if (p_index < NUM_PROCESSES)
                 {
                     next_arrival = p[p_index]->getArrival();
@@ -601,22 +632,27 @@ int PreemptiveSJF(Process** p){
 	    }
 
 	    prev_p_id = current_p->getPid();
+	    //Gets the next process
 	    current_p = pq.nextSJF();
 	    preempt = 0;
+	    //If it is different and not null, perform a context switch
 	    if (current_p != NULL && current_p->getPid() != prev_p_id)
 	    {
 	        cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<< prev_p_id <<" for process "<<current_p->getPid()<<")"<<endl;
 			int temp = current_time + tcs;
 			for(; p_index < NUM_PROCESSES && current_time < temp; current_time++)
 			{
+				//If a process arrives during context switch, push it to the queue
 			    if(p[p_index]->getArrival() == current_time)
 			    {
+			    	//Perform context switch if arriving process has less remaining time that current process
 			        if( current_p->timeRemaining() > p[p_index]->timeRemaining())
 			        {
 			            preempt = 1;
 			            pq.pushSJFProcess(p[p_index]);
 			            p_index++;
 			        }
+			        //Get next arrival time
 			        if( p_index < NUM_PROCESSES )
 			        {
 			            next_arrival = p[p_index]->getArrival();
@@ -625,14 +661,17 @@ int PreemptiveSJF(Process** p){
 			}
 			current_time = temp;
 	    }
+	    //If the CPU is idle (no current process) and there are still processes to run
+		//	jump to next arrival time
 	    if (p_index < NUM_PROCESSES && current_p == NULL){
 			current_time = next_arrival;
 			pq.pushSJFProcess(p[p_index++]);
 			current_p = pq.next();
 			if (p_index < NUM_PROCESSES) next_arrival = p[p_index]->getArrival();
-	}
+		}
 	}
 
+	//Output the statistics and reset the variables of each process
     pq.outputStats();
 	pq.reset();
 
@@ -726,9 +765,12 @@ int randomArrival(int processCount){
 
 	int val = 0;
 
+	//20 percent of the process will have arrival time of 0ms
 	if (processCount < NUM_PROCESSES * 0.2)
 		return val;
 
+	//Perform exponential distribution with an average time of 1000ms using 0.001 lambda value
+	//Ignores values greater than 8000ms
 	while(1)
 	{
 		double lambda = 0.001;
@@ -742,6 +784,7 @@ int randomArrival(int processCount){
 	return val;
 }
 
+//Operator to sort array by increasing arrival time
 bool sortbyArrival(Process* i, Process* j){
 	return i->getArrival() < j->getArrival();
 }
