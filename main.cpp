@@ -21,6 +21,8 @@ int tcs = 17; //Time for context switch
 
 /*
 Class to represent a process that enters the system
+ - Maintains its own process time, priority, remaining time, and wait times
+ - Used in the process queue class
 */
 class Process{
 	public:
@@ -44,6 +46,7 @@ class Process{
 		int priority;
 };
 
+//
 Process::Process(int p, int t, int a_t, int pri)
 {
 	pid = p;
@@ -160,7 +163,6 @@ Process* Process_Queue::pushRRProcess(Process* np)
 
 Process* Process_Queue::pushSJFProcess(Process* np)
 {
-	//cout<<np->getPriority();
 	cout<<"[time "<<current_time<<"ms] Process "<<np->getPid();
 	cout<<" created (requires "<<np->processTime() <<"ms CPU time)"<< endl;
 	if(p.size() < 1)
@@ -403,7 +405,8 @@ int RR(Process** p){
 			current_time = next_arrival;
 			pq.pushRRProcess(p[p_index++]);
 			current_p = pq.next();
-			next_arrival = p[p_index]->getArrival();
+			if (p_index < NUM_PROCESSES) 
+				next_arrival = p[p_index]->getArrival();
 		}
 	}
 	pq.outputStats();
@@ -462,7 +465,7 @@ int SJF(Process** p){
 			}
 			current_time = temp;
 	    }
-	    if (p_index < NUM_PROCESSES){
+	    if (current_p == NULL && p_index < NUM_PROCESSES){
 			int next_arrival = p[p_index]->getArrival();
 			current_time = next_arrival;
 			pq.pushProcess(p[p_index++]);
@@ -633,13 +636,6 @@ void PreemptivePriority(Process** p)
 int randomArrival(int processCount){
 
 	int val = 0;
-	/*
-	int percent = rand() % 100 + 1; //Random number between 1-100
-	if (percent <= 20)
-	{
-		return val;
-	}
-	*/
 
 	if (processCount < NUM_PROCESSES * 0.2)
 		return val;
