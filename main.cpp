@@ -13,12 +13,15 @@ using namespace std;
 #define TIME_SLICE 1000
 #define MAX_BURST 4000
 #define MIN_BURST 500
-#define MAX_PRIORITY 2
+#define MAX_PRIORITY 4
 
 //Global Variables
 int current_time = 0;
 int tcs = 17; //Time for context switch
 
+/*
+Class to represent a process that enters the system
+*/
 class Process{
 	public:
 		Process(int p, int t, int a_t, int pri);
@@ -93,14 +96,14 @@ class Process_Queue{
 	Process_Queue(){current_index = 0;};
 	int pushProcess(Process* np);
 	int pushProcessPri(Process* np);
+	Process* pushSJFProcess(Process* np);
 	Process* pushRRProcess(Process* np);
 	void reset();
 	void outputStats();
 
-	Process* nextShortest();
-	Process* nextHighPriority();	
-//	int numPriority(int num);
+	Process* nextHighPriority();
 	Process* next();
+	Process* nextSJF();
 
 	bool isEmpty() {return (p.size() > 0); }
 
@@ -108,7 +111,7 @@ class Process_Queue{
 	private:
 		vector<Process*> p;
 		unsigned int current_index;
-};	
+};
 
 int Process_Queue::pushProcess(Process* np)
 {
@@ -151,11 +154,35 @@ Process* Process_Queue::pushRRProcess(Process* np)
 		p.insert(p.begin() +  queue_end - 1, np);
 		current_index++;
 	}
-	cout<<"Queue is ";
-	for (unsigned int i = 0; i < p.size(); i++)
-		cout<<p[i]->getPid()<< " ";
-	cout<<": "<<current_index<<endl;
 	return np;
+}
+
+
+Process* Process_Queue::pushSJFProcess(Process* np)
+{
+	//cout<<np->getPriority();
+	cout<<"[time "<<current_time<<"ms] Process "<<np->getPid();
+	cout<<" created (requires "<<np->processTime() <<"ms CPU time)"<< endl;
+	if(p.size() < 1)
+	{
+		p.push_back(np);
+	}
+	else
+	{
+		for(unsigned int i = current_index; i < p.size(); i++)
+		{
+			if (p[i]->getArrival() < np->getArrival() && p[i]->timeRemaining() > np->timeRemaining())
+			{
+				p.insert(p.begin() + i, np);
+				return np;
+			}
+		}
+		p.push_back(np);
+
+	}
+
+
+	return np;  
 }
 
 Process* Process_Queue::next()
@@ -215,18 +242,17 @@ Process* Process_Queue::nextHighPriority()
 	return NULL;	
 	
 }
-/*
-int Process_Queue::numPriority(int num)
+
+Process* Process_Queue::nextSJF()
 {
-	int r = 0;
-	for (unsigned int i = 0; i < p.size(); i++)
-	{
-		if (p[i]->getPriority() == num && p[i]->timeRemaining())
-			r++;
-	}
-	return r;
+    current_index = 0;
+    for( current_index = 0; current_index < p.size(); current_index++)
+    {
+        if(p[current_index]->timeRemaining() > 0)
+            return p[current_index];
+    }
+	return NULL;
 }
-*/
 
 void Process_Queue::outputStats()
 {
@@ -385,6 +411,159 @@ int RR(Process** p){
 	return 0;
 }
 
+int SJF(Process** p){
+	current_time = 0;
+	int p_index;
+	cout<<"SJF Non Preemptive"<<endl;
+	Process_Queue pq;
+
+	if (NUM_PROCESSES == 0)
+	{
+		return 0;
+	}
+
+    for (p_index = 0; p_index < NUM_PROCESSES; p_index++)
+	{
+		if (p[p_index]->getArrival() == 0)
+		{
+			pq.pushSJFProcess(p[p_index]);
+		}
+		else
+			break;
+	}
+
+    int prev_p_id = 0;
+	Process* current_p = pq.nextSJF();
+	while( current_p != NULL )
+	{
+	    int ran = 1;
+	    for( int i = 0; i < 4000 && ran == 1; i++ )
+	    {
+	        ran = current_p->runProcess();
+            if (p_index < NUM_PROCESSES && p[p_index]->getArrival() <= current_time)
+            {
+                pq.pushSJFProcess(p[p_index]);
+                p_index++;
+            }
+	    }
+
+	    prev_p_id = current_p->getPid();
+	    current_p = pq.nextSJF();
+	    if (current_p != NULL && current_p->getPid() != prev_p_id)
+	    {
+	        cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<< prev_p_id <<" for process "<<current_p->getPid()<<")"<<endl;
+			int temp = current_time + tcs;
+			for(; p_index < NUM_PROCESSES && current_time < temp; current_time++)
+			{
+			    if(p[p_index]->getArrival() == current_time)
+			    {
+			        pq.pushSJFProcess(p[p_index]);
+			    }
+			}
+			current_time = temp;
+	    }
+	    if (p_index < NUM_PROCESSES){
+			int next_arrival = p[p_index]->getArrival();
+			current_time = next_arrival;
+			pq.pushProcess(p[p_index++]);
+			current_p = pq.next();
+		}
+	}
+
+    pq.outputStats();
+	pq.reset();
+
+	return 0;
+}
+
+int PreemptiveSJF(Process** p){
+	current_time = 0;
+	int p_index;
+	int next_arrival = 0;
+	cout<<"SJF Preemptive"<<endl;
+	Process_Queue pq;
+
+	if (NUM_PROCESSES == 0)
+	{
+		return 0;
+	}
+
+    for (p_index = 0; p_index < NUM_PROCESSES; p_index++)
+	{
+		if (p[p_index]->getArrival() == 0)
+		{
+			pq.pushSJFProcess(p[p_index]);
+		}
+		else
+		{
+            next_arrival = p[p_index]->getArrival();
+            break;
+		}
+	}
+
+    int prev_p_id = 0;
+	Process* current_p = pq.nextSJF();
+	int preempt = 0;
+	while( current_p != NULL )
+	{
+	    int ran = 1;
+	    for( int i = 0; i < 4000 && ran == 1 && !preempt; i++ )
+	    {
+	        ran = current_p->runProcess();
+            if (p_index < NUM_PROCESSES && p[p_index]->getArrival() <= current_time)
+            {
+                pq.pushSJFProcess(p[p_index]);
+                if( current_p->timeRemaining() > p[p_index]->timeRemaining())
+                {
+                    preempt = 1;
+                }
+                p_index++;
+                if (p_index < NUM_PROCESSES)
+                {
+                    next_arrival = p[p_index]->getArrival();
+                }
+            }
+	    }
+
+	    prev_p_id = current_p->getPid();
+	    current_p = pq.nextSJF();
+	    preempt = 0;
+	    if (current_p != NULL && current_p->getPid() != prev_p_id)
+	    {
+	        cout<<"[time "<<current_time<<"ms] Context switch (swapping out process "<< prev_p_id <<" for process "<<current_p->getPid()<<")"<<endl;
+			int temp = current_time + tcs;
+			for(; p_index < NUM_PROCESSES && current_time < temp; current_time++)
+			{
+			    if(p[p_index]->getArrival() == current_time)
+			    {
+			        if( current_p->timeRemaining() > p[p_index]->timeRemaining())
+			        {
+			            preempt = 1;
+			            pq.pushSJFProcess(p[p_index]);
+			            p_index++;
+			        }
+			        if( p_index < NUM_PROCESSES )
+			        {
+			            next_arrival = p[p_index]->getArrival();
+			        }
+			    }
+			}
+			current_time = temp;
+	    }
+	    if (p_index < NUM_PROCESSES && current_p == NULL){
+			current_time = next_arrival;
+			pq.pushProcess(p[p_index++]);
+			current_p = pq.next();
+			if (p_index < NUM_PROCESSES) next_arrival = p[p_index]->getArrival();
+	}
+	}
+
+    pq.outputStats();
+	pq.reset();
+
+	return 0;
+}
+
 void PreemptivePriority(Process** p)
 {
 	current_time = 0;
@@ -451,38 +630,6 @@ void PreemptivePriority(Process** p)
 }
 
 //----------------------------Random arrival---------------------------------
-/*
-void randomArrival(){
-	double min = 0;
-	double max = 0;
-	double sum = 0;
-
-	int n = 20;
-	for (int i = 0; i < n; i++){
-		double lambda = 0.001;
-		//srand(time(NULL));
-		double r = ((double)rand() / (RAND_MAX + 1LL));
-		cout << "r is " << r << endl;
-		double x = -log(r) / lambda;
-		if (x > 8000){
-			i--;
-			continue;
-		}
-		cout << "x is " << x << endl;
-		sum+= x;
-		if (i == 0 || x < min){
-			min = x;
-		}
-		if (i == 0 || x > max){
-			max = x;
-		}
-	}
-	double avg = sum / n;
-	cout << "MIN:" << min << endl;
-	cout << "AVG:" << avg << endl;
-	cout << "MAX:" << max << endl;
-}
-*/
 int randomArrival(int processCount){
 
 	int val = 0;
@@ -526,21 +673,21 @@ int main()
 		int priority = rand() % (MAX_PRIORITY+1);
 		int arrival = randomArrival(i);
 		p[i] = new Process((i+1), p_time, arrival, priority);
-	//	cout << "p[" << i << "] arrival: "<< p[i]->getArrival() << " priority "<< p[i]->getPriority() << endl;
 	}
 
 	sort(p, p+NUM_PROCESSES, sortbyArrival);
 
-	for (int i = 0; i < NUM_PROCESSES; i++){
-		cout << "p[" << p[i]->getPid() << "] arrival: "<< p[i]->getArrival() << " priority "<< p[i]->getPriority() << endl;		
-	}
-
-	//cout << randomArrival() << endl;
-
 	FCFS(p);
-
+	cout<<endl;
 	RR(p);
-	
+	cout<<endl;
+
+	SJF(p);
+	cout<<endl;
+
+	PreemptiveSJF(p);
+	cout<<endl;
+
 	PreemptivePriority(p);
 
 	for (int i = 0; i < NUM_PROCESSES; i++){
