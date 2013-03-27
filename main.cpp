@@ -414,6 +414,9 @@ int RR(Process** p){
 	return 0;
 }
 
+/* 
+ * Function that performs non-preemptive shortest job first algorithm
+ */
 int SJF(Process** p){
 	current_time = 0;
 	int p_index;
