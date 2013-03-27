@@ -46,7 +46,7 @@ class Process{
 		int priority;
 };
 
-//
+// Sets the initial values for the process
 Process::Process(int p, int t, int a_t, int pri)
 {
 	pid = p;
@@ -58,6 +58,7 @@ Process::Process(int p, int t, int a_t, int pri)
 	priority = pri;
 }
 
+// 
 int Process::runProcess()
 {
 	if (time_remaining == process_time)
