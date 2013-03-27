@@ -799,11 +799,15 @@ int main()
 	for (int i = 0; i < NUM_PROCESSES; i++){
 		int p_time = rand() % (MAX_BURST - MIN_BURST) + MIN_BURST;
 		int priority = rand() % (MAX_PRIORITY+1);
-		int arrival = randomArrival(i);
+		int arrival = 0;
+		#ifdef PART2
+		arrival = randomArrival(i);
+		#endif
 		p[i] = new Process((i+1), p_time, arrival, priority);
 	}
 
 	sort(p, p+NUM_PROCESSES, sortbyArrival);
+
 
 	FCFS(p);
 	cout<<endl;
