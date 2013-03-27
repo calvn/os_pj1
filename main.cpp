@@ -171,7 +171,7 @@ Process* Process_Queue::pushSJFProcess(Process* np)
 	{
 		for(unsigned int i = current_index; i < p.size(); i++)
 		{
-			if (p[i]->getArrival() < np->getArrival() && p[i]->timeRemaining() > np->timeRemaining())
+			if (p[i]->getArrival() <= np->getArrival() && p[i]->timeRemaining() > np->timeRemaining())
 			{
 				p.insert(p.begin() + i, np);
 				return np;
